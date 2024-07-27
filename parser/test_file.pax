@@ -1,0 +1,35 @@
+
+// tag with variables
+<Rectangle bind:x=self.someval y=100px anchor_x={(some_var.ax)px + 10%} fill=RED/>
+
+// for loops with range
+for i in 0..5 {
+  slot(i)
+}
+
+// for loop with values
+for (i, elem) in some_collection.somestruct {
+  <Someother x={elem.x} y ={elem.y}/>
+}
+// if statement + complex expression (wouldn't pass type checking)
+
+if func_is_valid(5 + 23px, -3 || 1 && 2 != !3 >= 4 <= 5) + "hello" * 5 {
+  <Rectangle val= Color {r: 45, g: 304, b: 3940} fill=5045px @event=self.event/>
+}
+
+// everything together
+
+<Group width=50% x=50%>
+  for elem in some_collection {
+    if elem.is_valid {
+      <Image source={add_https_prefix(elem.source)}/>
+      slot(elem.slot_index + 1)
+      <Group>
+      </Group>
+    }
+  }
+</Group>
+
+@settings {
+  
+}

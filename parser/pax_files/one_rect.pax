@@ -1,0 +1,43 @@
+<Group>
+    <Group width=50%>
+    	<Text text="Hejhej" class=centered class=small id=text />
+        <Rectangle class=one_rect
+             fill={hsl(ticks + 100, 75%, 50%)}
+        />
+    </Group>
+</Group>
+
+@settings {
+    .one_rect {
+        x: 50%
+        y: 50%
+        anchor_x: 50%
+        anchor_y: 50%
+        width: 50%
+        height: 50%
+    }
+     .centered {
+        x: 50%
+        y: 50%
+        anchor_x: 50%
+        anchor_y: 50%
+    }
+    .small {
+        width: 120px
+        height: 120px
+    }
+    #text {
+        style: {
+                font: {Fontsystem("Times New Roman", FontStyleNormal, FontWeightBold)},
+                font_size: 32px,
+                fill: WHITE,
+                align_vertical: TextAlignVerticalCenter,
+                align_horizontal: TextAlignHorizontalCenter,
+                align_multiline: TextAlignHorizontalCenter
+        }
+    }
+}
+
+@settings {
+    @pre_render: handle_pre_render
+}

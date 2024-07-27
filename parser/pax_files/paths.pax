@@ -1,0 +1,22 @@
+<Path class=bounding_segment/>
+
+@settings {
+    .bounding_segment {
+        elements: {[
+            point(0px, 0px),
+            line(),
+            point(40%, 40%)
+        ]},
+		stroke: {
+            color: GREEN,
+            width: 10px
+        },
+    }
+}
+<Rectangle width=50% height=50%
+    fill=RED
+    stroke={
+        color: GREEN,
+        width: 10px
+    }
+ />

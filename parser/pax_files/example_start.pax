@@ -1,0 +1,21 @@
+<Group x=50% y=50% width=120px height=120px @click=self.increment >
+    <Text text={self.num_clicks + " clicks"} id=text />
+    <Rectangle
+        fill={rgb(ticks, 75, 150)}
+        corner_radii={radii(10.0,10.0,10.0,10.0)}
+    />
+</Group>
+
+@settings {
+    @pre_render: handle_pre_render,
+    #text {
+        style: {
+                font: {font("Times New Roman", Normal, Bold)},
+                font_size: 22px,
+                fill: WHITE,
+                align_vertical: Center,
+                align_horizontal: Center,
+                align_multiline: Center
+        }
+    }
+}

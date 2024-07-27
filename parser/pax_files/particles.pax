@@ -1,0 +1,9 @@
+for (p,i) in self.particles {
+    <Ball index={i} magnitude={p.magnitude} x={p.x} y={p.y}  />
+}
+<Rectangle fill=SLATE />
+
+@settings {
+    @mount: handle_mount
+    @tick: handle_tick
+}

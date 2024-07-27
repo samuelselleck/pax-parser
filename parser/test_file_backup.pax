@@ -1,0 +1,42 @@
+<Rectangle 
+functioncall=rgb(34%, (5 + 2px), {something + complex + 5.0}, ident.something)
+
+var=some.something.has value="testing haha" other="\"" three="\\ \"\"" x=5.0px y=20% broken=4.0 teee=340 test=10249.034rad/>
+<Rectangle fill={SLATE + 5.0 + {test: 5}}/>
+<Group x=5 bro=5.0  @mount=thisis_a_mount_method test=something event=whohoo>
+    // This is a test comment!
+    for v in someproperty {
+        // this should also be legal <3
+        <Testing what=test/>
+    }
+
+    for (i, val) in someotherthing {
+        if something {
+            slot(hello_goodbye)
+        }
+        <Todo>
+            <Tvatta/>
+            <Vattna/>
+        </Todo>
+    }
+    if something {
+        slot(hello_goodbye)
+    }
+</Group>
+// and this <3
+<Todo>
+    <Tvatta/>
+    <Vattna/>
+</Todo>
+
+@settings {
+
+    // and this in settings <3
+    @mount: handle_mount
+    @tick: handle_tick
+    .someclass {
+        testing: {whaat + 3.0}
+        why: 5.0px
+    }
+}
+
