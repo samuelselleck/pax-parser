@@ -5,32 +5,41 @@ use codespan_reporting::term::termcolor::{ColorChoice, StandardStream};
 use std::fmt::Write;
 
 use crate::{
-    lexer::{Span, SrcToken, Token},
+    lexer::{Span, Token, TokenKind},
     Parser,
 };
 
 impl<'src> Parser<'src> {
-    pub fn expect(&mut self, token: Token) -> Result<SrcToken, PaxParseError> {
-        self.tokens
-            .expect_token(token)
-            .map_err(|e| self.expected_with_span(e.token_found.span, [e.token_expected_type]))
+    pub fn expect(&mut self, token: TokenKind) -> Result<Token, PaxParseError> {
+        let next = self.next_token();
+        if next.kind == token {
+            Ok(next)
+        } else {
+            Err(self.expected_with_span(next.span, [token]))
+        }
     }
 
     pub fn expect_sequence<const N: usize>(
         &mut self,
-        expected_types: [Token; N],
-    ) -> Result<[SrcToken; N], PaxParseError> {
-        self.tokens
-            .expect_token_sequence(expected_types)
-            .map_err(|e| self.expected_with_span(e.token_found.span, [e.token_expected_type]))
+        expected_types: [TokenKind; N],
+    ) -> Result<[Token; N], PaxParseError> {
+        let mut values = [Token::default(); N];
+        for i in 0..N {
+            values[i] = self.expect(expected_types[i])?;
+        }
+        Ok(values)
     }
 
-    pub fn error<const N: usize>(&mut self, tokens: [Token; N]) -> PaxParseError {
-        let tok = self.tokens.next();
-        self.expected_with_span(tok.span, tokens)
+    pub fn error<const N: usize>(&mut self, expected_tokens: [TokenKind; N]) -> PaxParseError {
+        let tok = self.next_token();
+        self.expected_with_span(tok.span, expected_tokens)
     }
 
-    fn expected_with_span<const N: usize>(&self, span: Span, tokens: [Token; N]) -> PaxParseError {
+    fn expected_with_span<const N: usize>(
+        &self,
+        span: Span,
+        tokens: [TokenKind; N],
+    ) -> PaxParseError {
         // TODO add info from self.context
         let mut expect_str = String::from("expected ");
         match tokens.len() {

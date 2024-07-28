@@ -5,7 +5,7 @@ use crate::{
         common::{Comment, Handler, Identifier},
         settings::{Class, Id, SettingsEntry},
     },
-    lexer::Token,
+    lexer::TokenKind,
 };
 
 use super::{Parser, PaxParseError};
@@ -13,37 +13,40 @@ use super::{Parser, PaxParseError};
 impl<'src> Parser<'src> {
     #[token_context("Settings")]
     pub fn settings(&mut self) -> Result<Vec<SettingsEntry>, PaxParseError> {
-        let [_, ident, _] =
-            self.expect_sequence([Token::AtSymbol, Token::Identifier, Token::OpenCurlBrack])?;
+        let [_, ident, _] = self.expect_sequence([
+            TokenKind::AtSymbol,
+            TokenKind::Identifier,
+            TokenKind::OpenCurlBrack,
+        ])?;
         if self.source_of(ident.span) != "settings" {
             return Err(PaxParseError::new("expected settings block")
                 .annotation(ident.span, "only settings allowed in top level context"));
         }
         let mut entries = vec![];
         loop {
-            entries.push(match self.tokens.peek() {
-                Token::AtSymbol => SettingsEntry::Handler(self.handler()?),
-                Token::Period => SettingsEntry::Class(self.class()?),
-                Token::Hashtag => SettingsEntry::Id(self.id()?),
-                Token::Comment => {
-                    SettingsEntry::Comment(Comment(self.expect(Token::Comment)?.span))
+            entries.push(match self.peek_token() {
+                TokenKind::AtSymbol => SettingsEntry::Handler(self.handler()?),
+                TokenKind::Period => SettingsEntry::Class(self.class()?),
+                TokenKind::Hashtag => SettingsEntry::Id(self.id()?),
+                TokenKind::Comment => {
+                    SettingsEntry::Comment(Comment(self.expect(TokenKind::Comment)?.span))
                 }
-                Token::CloseCurlBrack => {
+                TokenKind::CloseCurlBrack => {
                     self.tokens.next();
                     break;
                 }
                 _ => {
                     return Err(self.error([
-                        Token::AtSymbol,
-                        Token::Period,
-                        Token::Hashtag,
-                        Token::Comment,
-                        Token::CloseCurlBrack,
+                        TokenKind::AtSymbol,
+                        TokenKind::Period,
+                        TokenKind::Hashtag,
+                        TokenKind::Comment,
+                        TokenKind::CloseCurlBrack,
                     ]));
                 }
             });
             //skip commas if they exist
-            self.tokens.next_if(|t| t == Token::Comma);
+            self.next_token_if(|t| t == TokenKind::Comma);
         }
         Ok(entries)
     }
@@ -51,10 +54,10 @@ impl<'src> Parser<'src> {
     #[token_context("Handler (@handler=foo)")]
     fn handler(&mut self) -> Result<Handler, PaxParseError> {
         let [_, name, _, ident] = self.expect_sequence([
-            Token::AtSymbol,
-            Token::Identifier,
-            Token::Colon,
-            Token::Identifier,
+            TokenKind::AtSymbol,
+            TokenKind::Identifier,
+            TokenKind::Colon,
+            TokenKind::Identifier,
         ])?;
         Ok(Handler {
             key: Identifier(name.span),
@@ -64,8 +67,8 @@ impl<'src> Parser<'src> {
 
     #[token_context("Class (.a_class {..})")]
     fn class(&mut self) -> Result<Class, PaxParseError> {
-        self.expect(Token::Period)?;
-        let name = self.expect(Token::Identifier)?;
+        self.expect(TokenKind::Period)?;
+        let name = self.expect(TokenKind::Identifier)?;
         let body = self.map()?;
         Ok(Class {
             name: Identifier(name.span),
@@ -75,8 +78,8 @@ impl<'src> Parser<'src> {
 
     #[token_context("Id (#a_class {..})")]
     fn id(&mut self) -> Result<Id, PaxParseError> {
-        self.expect(Token::Hashtag)?;
-        let name = self.expect(Token::Identifier)?;
+        self.expect(TokenKind::Hashtag)?;
+        let name = self.expect(TokenKind::Identifier)?;
         let body = self.map()?;
         Ok(Id {
             name: Identifier(name.span),

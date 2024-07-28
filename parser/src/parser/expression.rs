@@ -2,7 +2,7 @@ use pax_parser_macros::token_context;
 
 use crate::{
     ast::expression::{BinaryOp, Expression, Op, UnaryOp, Unit},
-    lexer::Token,
+    lexer::TokenKind,
 };
 
 use super::{Parser, PaxParseError};
@@ -13,12 +13,12 @@ impl<'src> Parser<'src> {
     pub fn literal_or_wrapped_expression(&mut self) -> Result<Expression, PaxParseError> {
         // Figure out if the {.. } wrapping this expression is intended
         // to be an expression like {5 + 4}, or a block/map, like {hello: 5}
-        let is_expression = self.tokens.peek() == Token::OpenCurlBrack && !self.is_map_next();
+        let is_expression = self.peek_token() == TokenKind::OpenCurlBrack && !self.is_map_next();
 
         Ok(if is_expression {
-            self.expect(Token::OpenCurlBrack)?;
+            self.expect(TokenKind::OpenCurlBrack)?;
             let expr = self.expression_with_min_bp(0)?;
-            self.expect(Token::CloseCurlBrack)?;
+            self.expect(TokenKind::CloseCurlBrack)?;
             expr
         } else {
             // parse iteral, and convert it into expression form
@@ -38,15 +38,15 @@ impl<'src> Parser<'src> {
     }
 
     fn expression_with_min_bp(&mut self, min_bp: u8) -> Result<Expression, PaxParseError> {
-        let mut value = match self.tokens.peek() {
-            Token::Identifier
-            | Token::Integer
-            | Token::Float
-            | Token::OpenCurlBrack
-            | Token::String
-            | Token::OpenSquareBrack
-            | Token::OpenParenth => Expression::Value(self.value()?),
-            Token::Not => {
+        let mut value = match self.peek_token() {
+            TokenKind::Identifier
+            | TokenKind::Integer
+            | TokenKind::Float
+            | TokenKind::OpenCurlBrack
+            | TokenKind::String
+            | TokenKind::OpenSquareBrack
+            | TokenKind::OpenParenth => Expression::Value(self.value()?),
+            TokenKind::Not => {
                 let ((), rbp) = prefix_binding_power(UnaryOp::Not);
                 self.tokens.next();
                 let rhs = self.expression_with_min_bp(rbp)?;
@@ -55,7 +55,7 @@ impl<'src> Parser<'src> {
                     val: Box::new(rhs),
                 }
             }
-            Token::Minus => {
+            TokenKind::Minus => {
                 //prefix minus
                 let ((), rbp) = prefix_binding_power(UnaryOp::Neg);
                 self.tokens.next();
@@ -65,46 +65,47 @@ impl<'src> Parser<'src> {
                     val: Box::new(rhs),
                 }
             }
-            _ => {
+            a => {
+                eprintln!("found: {:?}", a);
                 return Err(self.error([
-                    Token::Identifier,
-                    Token::Integer,
-                    Token::Float,
-                    Token::OpenCurlBrack,
-                    Token::String,
-                    Token::OpenSquareBrack,
-                    Token::OpenParenth,
-                    Token::Not,
-                    Token::Minus,
+                    TokenKind::Identifier,
+                    TokenKind::Integer,
+                    TokenKind::Float,
+                    TokenKind::OpenCurlBrack,
+                    TokenKind::String,
+                    TokenKind::OpenSquareBrack,
+                    TokenKind::OpenParenth,
+                    TokenKind::Not,
+                    TokenKind::Minus,
                 ]));
             }
         };
 
         loop {
-            let op = match self.tokens.peek() {
+            let op = match self.peek_token() {
                 // units
-                Token::Pixels => Op::Postfix(Unit::Pixels),
-                Token::Percent => Op::Postfix(Unit::Percent),
-                Token::Degrees => Op::Postfix(Unit::Degrees),
-                Token::Radians => Op::Postfix(Unit::Radians),
+                TokenKind::Pixels => Op::Postfix(Unit::Pixels),
+                TokenKind::Percent => Op::Postfix(Unit::Percent),
+                TokenKind::Degrees => Op::Postfix(Unit::Degrees),
+                TokenKind::Radians => Op::Postfix(Unit::Radians),
 
                 // binary operators
-                Token::Plus => Op::Binary(BinaryOp::Add),
-                Token::Minus => Op::Binary(BinaryOp::Sub),
-                Token::Asterisk => Op::Binary(BinaryOp::Mult),
-                Token::Remainder => Op::Binary(BinaryOp::Mod),
-                Token::Range => Op::Binary(BinaryOp::Range),
-                Token::Eq => Op::Binary(BinaryOp::Eq),
-                Token::LessOrEq => Op::Binary(BinaryOp::LessOrEq),
-                Token::MoreOrEq => Op::Binary(BinaryOp::MoreOrEq),
-                Token::NotEq => Op::Binary(BinaryOp::NotEq),
-                Token::Or => Op::Binary(BinaryOp::Or),
-                Token::And => Op::Binary(BinaryOp::And),
-                Token::CloseAngBrack => Op::Binary(BinaryOp::LargerThan),
-                Token::OpenAngBrack => Op::Binary(BinaryOp::SmallerThan),
-                Token::Exp => Op::Binary(BinaryOp::Exp),
-                Token::Slash => {
-                    if self.tokens.peek_nth(1) == Token::CloseAngBrack {
+                TokenKind::Plus => Op::Binary(BinaryOp::Add),
+                TokenKind::Minus => Op::Binary(BinaryOp::Sub),
+                TokenKind::Asterisk => Op::Binary(BinaryOp::Mult),
+                TokenKind::Remainder => Op::Binary(BinaryOp::Mod),
+                TokenKind::Range => Op::Binary(BinaryOp::Range),
+                TokenKind::Eq => Op::Binary(BinaryOp::Eq),
+                TokenKind::LessOrEq => Op::Binary(BinaryOp::LessOrEq),
+                TokenKind::MoreOrEq => Op::Binary(BinaryOp::MoreOrEq),
+                TokenKind::NotEq => Op::Binary(BinaryOp::NotEq),
+                TokenKind::Or => Op::Binary(BinaryOp::Or),
+                TokenKind::And => Op::Binary(BinaryOp::And),
+                TokenKind::CloseAngBrack => Op::Binary(BinaryOp::LargerThan),
+                TokenKind::OpenAngBrack => Op::Binary(BinaryOp::SmallerThan),
+                TokenKind::Exp => Op::Binary(BinaryOp::Exp),
+                TokenKind::Slash => {
+                    if self.peek_nth_token(1) == TokenKind::CloseAngBrack {
                         // this slash is part of a closing tag not a
                         // div sign, return!
                         break;

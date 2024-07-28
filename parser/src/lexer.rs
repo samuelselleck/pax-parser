@@ -1,28 +1,63 @@
-use std::{collections::VecDeque, str::CharIndices};
+use std::str::CharIndices;
 mod span;
 mod token;
 pub use span::Span;
-pub use token::Token;
+pub use token::TokenKind;
 
 use crate::utils::MultiPeek;
 
-#[derive(Debug)]
-pub struct UnexpectedToken {
-    pub token_found: SrcToken,
-    pub token_expected_type: Token,
-}
-
 #[derive(Debug, Clone, Copy, Default)]
-pub struct SrcToken {
+pub struct Token {
     pub span: Span,
-    pub token_type: Token,
+    pub kind: TokenKind,
 }
 
 pub struct TokenIterator<'src> {
     itr: MultiPeek<CharIndices<'src>>,
     pub src: &'src str,
-    peeked: VecDeque<SrcToken>,
-    newline_indicies: Vec<usize>,
+}
+
+impl<'src> Iterator for TokenIterator<'src> {
+    type Item = Token;
+
+    fn next(&mut self) -> Option<Token> {
+        //trim all white spaces
+        while let Some(_) = self.itr.next_if(|(_, c)| c.is_whitespace()) {}
+
+        let (_, char) = self.itr.peek().cloned()?;
+        Some(match char {
+            c if c.is_alphabetic() => self.ident_like(),
+            v if v.is_ascii_digit() => self.number(),
+            '(' => self.single(TokenKind::OpenParenth),
+            ')' => self.single(TokenKind::CloseParenth),
+            '[' => self.single(TokenKind::OpenSquareBrack),
+            ']' => self.single(TokenKind::CloseSquareBrack),
+            '{' => self.single(TokenKind::OpenCurlBrack),
+            '}' => self.single(TokenKind::CloseCurlBrack),
+            '*' => self.single(TokenKind::Asterisk),
+            '+' => self.single(TokenKind::Plus),
+            '-' => self.single(TokenKind::Minus),
+            '@' => self.single(TokenKind::AtSymbol),
+            ':' => self.one_or_two_if_with(TokenKind::Colon, ':', TokenKind::PathSep),
+            ',' => self.single(TokenKind::Comma),
+            '#' => self.single(TokenKind::Hashtag),
+            '^' => self.single(TokenKind::Exp),
+            '/' => self.comment_or_slash(),
+            '"' => self.string(),
+            '.' => self.one_or_two_if_with(TokenKind::Period, '.', TokenKind::Range),
+            '%' => self.one_or_two_if_with(TokenKind::Percent, '%', TokenKind::Remainder),
+            '<' => self.one_or_two_if_with(TokenKind::OpenAngBrack, '=', TokenKind::LessOrEq),
+            '>' => self.one_or_two_if_with(TokenKind::CloseAngBrack, '=', TokenKind::MoreOrEq),
+            '=' => self.one_or_two_if_with(TokenKind::Assign, '=', TokenKind::Eq),
+            '!' => self.one_or_two_if_with(TokenKind::Not, '=', TokenKind::NotEq),
+            '|' => self.one_or_two_if_with(TokenKind::VertLine, '|', TokenKind::Or),
+            '&' => self.one_or_two_if_with(TokenKind::Ampersand, '&', TokenKind::And),
+            c => {
+                eprintln!("unknown token: {:?}", c);
+                self.single(TokenKind::Unknown)
+            }
+        })
+    }
 }
 
 impl<'src> TokenIterator<'src> {
@@ -30,120 +65,21 @@ impl<'src> TokenIterator<'src> {
         Self {
             itr: MultiPeek::new(source.char_indices()),
             src: source,
-            peeked: VecDeque::new(),
-            newline_indicies: Vec::new(),
         }
     }
 
-    pub fn peek_nth(&mut self, i: usize) -> Token {
-        while self.peeked.len() <= i {
-            let next = self.next_ignore_peeked();
-            self.peeked.push_back(next);
-        }
-        self.peeked[i].token_type
-    }
-
-    pub fn peek(&mut self) -> Token {
-        self.peek_nth(0)
-    }
-
-    pub fn next_if(&mut self, f: impl FnOnce(Token) -> bool) -> Option<SrcToken> {
-        let next = self.peek();
-        f(next).then(|| self.next())
-    }
-
-    pub fn expect_token(&mut self, expected_type: Token) -> Result<SrcToken, UnexpectedToken> {
-        let next = self.next();
-        if next.token_type == expected_type {
-            Ok(next)
-        } else {
-            Err(UnexpectedToken {
-                token_found: next,
-                token_expected_type: expected_type,
-            })
-        }
-    }
-
-    pub fn expect_token_sequence<const N: usize>(
-        &mut self,
-        expected_types: [Token; N],
-    ) -> Result<[SrcToken; N], UnexpectedToken> {
-        let mut values = [SrcToken::default(); N];
-        for i in 0..N {
-            values[i] = self.expect_token(expected_types[i])?;
-        }
-        Ok(values)
-    }
-
-    pub fn next(&mut self) -> SrcToken {
-        if let Some(front) = self.peeked.pop_front() {
-            return front;
-        }
-        self.next_ignore_peeked()
-    }
-
-    fn next_ignore_peeked(&mut self) -> SrcToken {
-        //trim all white spaces
-        while let Some((i, whitespace)) = self.itr.next_if(|(_, c)| c.is_whitespace()) {
-            if whitespace == '\n' {
-                self.newline_indicies.push(i);
-            }
-        }
-
-        let Some((_, char)) = self.itr.peek().cloned() else {
-            let start = self.src.len() - 1;
-            let end = self.src.len();
-            return SrcToken {
-                span: Span { start, end },
-                token_type: Token::EOF,
-            };
-        };
-        match char {
-            c if c.is_alphabetic() => self.ident_like(),
-            v if v.is_ascii_digit() => self.number(),
-            '(' => self.single(Token::OpenParenth),
-            ')' => self.single(Token::CloseParenth),
-            '[' => self.single(Token::OpenSquareBrack),
-            ']' => self.single(Token::CloseSquareBrack),
-            '{' => self.single(Token::OpenCurlBrack),
-            '}' => self.single(Token::CloseCurlBrack),
-            '*' => self.single(Token::Asterisk),
-            '+' => self.single(Token::Plus),
-            '-' => self.single(Token::Minus),
-            '@' => self.single(Token::AtSymbol),
-            ':' => self.one_or_two_if_with(Token::Colon, ':', Token::PathSep),
-            ',' => self.single(Token::Comma),
-            '#' => self.single(Token::Hashtag),
-            '^' => self.single(Token::Exp),
-            '/' => self.comment_or_slash(),
-            '"' => self.string(),
-            '.' => self.one_or_two_if_with(Token::Period, '.', Token::Range),
-            '%' => self.one_or_two_if_with(Token::Percent, '%', Token::Remainder),
-            '<' => self.one_or_two_if_with(Token::OpenAngBrack, '=', Token::LessOrEq),
-            '>' => self.one_or_two_if_with(Token::CloseAngBrack, '=', Token::MoreOrEq),
-            '=' => self.one_or_two_if_with(Token::Assign, '=', Token::Eq),
-            '!' => self.one_or_two_if_with(Token::Not, '=', Token::NotEq),
-            '|' => self.one_or_two_if_with(Token::VertLine, '|', Token::Or),
-            '&' => self.one_or_two_if_with(Token::Ampersand, '&', Token::And),
-            c => {
-                eprintln!("unknown token: {:?}", c);
-                self.single(Token::Unknown)
-            }
-        }
-    }
-
-    fn single(&mut self, token_type: Token) -> SrcToken {
+    fn single(&mut self, token_type: TokenKind) -> Token {
         let Some((start, c)) = self.itr.next() else {
             unreachable!("already peeked to match on this function")
         };
         let end = start + c.len_utf8();
-        return SrcToken {
+        return Token {
             span: Span { start, end },
-            token_type,
+            kind: token_type,
         };
     }
 
-    fn ident_like(&mut self) -> SrcToken {
+    fn ident_like(&mut self) -> Token {
         let Some((start, _)) = self.itr.next() else {
             unreachable!("already peeked to match on this function")
         };
@@ -168,23 +104,23 @@ impl<'src> TokenIterator<'src> {
         }
 
         let token_type = match src {
-            "for" => Token::For,
-            "if" => Token::If,
-            "slot" => Token::Slot,
-            "in" => Token::In,
-            "px" => Token::Pixels,
-            "deg" => Token::Degrees,
-            "rad" => Token::Radians,
-            "bind" => Token::Bind,
-            _ => Token::Identifier,
+            "for" => TokenKind::For,
+            "if" => TokenKind::If,
+            "slot" => TokenKind::Slot,
+            "in" => TokenKind::In,
+            "px" => TokenKind::Pixels,
+            "deg" => TokenKind::Degrees,
+            "rad" => TokenKind::Radians,
+            "bind" => TokenKind::Bind,
+            _ => TokenKind::Identifier,
         };
-        return SrcToken {
+        return Token {
             span: Span { start, end },
-            token_type,
+            kind: token_type,
         };
     }
 
-    fn number(&mut self) -> SrcToken {
+    fn number(&mut self) -> Token {
         let Some((start, _)) = self.itr.next() else {
             unreachable!("already peeked to match on this function")
         };
@@ -207,17 +143,17 @@ impl<'src> TokenIterator<'src> {
             }
         }
         end += 1;
-        SrcToken {
+        Token {
             span: Span { start, end },
-            token_type: if is_float_next {
-                Token::Float
+            kind: if is_float_next {
+                TokenKind::Float
             } else {
-                Token::Integer
+                TokenKind::Integer
             },
         }
     }
 
-    fn comment_or_slash(&mut self) -> SrcToken {
+    fn comment_or_slash(&mut self) -> Token {
         let Some((start, _)) = self.itr.next() else {
             unreachable!("already peeked to match on this function")
         };
@@ -228,19 +164,19 @@ impl<'src> TokenIterator<'src> {
                 while let Some((i, _)) = self.itr.next_if(|&(_, c)| c != '\n') {
                     end = i;
                 }
-                Token::Comment
+                TokenKind::Comment
             }
-            _ => Token::Slash,
+            _ => TokenKind::Slash,
         };
         end += 1;
 
-        SrcToken {
+        Token {
             span: Span { start, end },
-            token_type,
+            kind: token_type,
         }
     }
 
-    fn one_or_two_if_with(&mut self, if_one: Token, if_with: char, if_two: Token) -> SrcToken {
+    fn one_or_two_if_with(&mut self, if_one: TokenKind, if_with: char, if_two: TokenKind) -> Token {
         let Some((start, character)) = self.itr.next() else {
             unreachable!("already peeked to match on this function")
         };
@@ -249,13 +185,13 @@ impl<'src> TokenIterator<'src> {
         } else {
             (if_one, start + character.len_utf8())
         };
-        SrcToken {
+        Token {
             span: Span { start, end },
-            token_type,
+            kind: token_type,
         }
     }
 
-    fn string(&mut self) -> SrcToken {
+    fn string(&mut self) -> Token {
         let Some((start, _)) = self.itr.next() else {
             unreachable!("already peeked to match on this function")
         };
@@ -281,9 +217,9 @@ impl<'src> TokenIterator<'src> {
         }
         end += 1;
 
-        SrcToken {
+        Token {
             span: Span { start, end },
-            token_type: Token::String,
+            kind: TokenKind::String,
         }
     }
 }

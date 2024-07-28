@@ -2,7 +2,7 @@ use pax_parser_macros::token_context;
 
 use crate::{
     ast::expression::{Literal, Unit, Value},
-    lexer::Token,
+    lexer::TokenKind,
 };
 
 use super::{Parser, PaxParseError};
@@ -16,17 +16,17 @@ impl<'src> Parser<'src> {
 
         let is_numeric = matches!(&value, Value::Int(_) | Value::Float(_));
         let next_is_unit = matches!(
-            self.tokens.peek(),
-            Token::Pixels | Token::Percent | Token::Radians | Token::Degrees,
+            self.peek_token(),
+            TokenKind::Pixels | TokenKind::Percent | TokenKind::Radians | TokenKind::Degrees,
         );
 
         let unit = if is_numeric && next_is_unit {
-            Some(match self.tokens.next().token_type {
-                Token::Pixels => Unit::Pixels,
-                Token::Percent => Unit::Percent,
-                Token::Radians => Unit::Radians,
-                Token::Degrees => Unit::Degrees,
-                _ => unreachable!(),
+            Some(match self.next_token().kind {
+                TokenKind::Pixels => Unit::Pixels,
+                TokenKind::Percent => Unit::Percent,
+                TokenKind::Radians => Unit::Radians,
+                TokenKind::Degrees => Unit::Degrees,
+                _ => unreachable!("already checked with if above"),
             })
         } else {
             None

@@ -16,19 +16,12 @@ impl<V, I: Iterator<Item = V>> MultiPeek<I> {
         }
     }
 
-    pub fn next(&mut self) -> Option<V> {
-        if let Some(elem) = self.peeked.pop_front() {
-            return Some(elem);
-        }
-        self.itr.next()
-    }
-
     pub fn peek_nth(&mut self, i: usize) -> Option<&V> {
         while i >= self.peeked.len() {
             let elem = self.itr.next()?;
             self.peeked.push_back(elem);
         }
-        self.peeked.back()
+        self.peeked.get(i)
     }
 
     pub fn peek(&mut self) -> Option<&V> {
@@ -41,6 +34,21 @@ impl<V, I: Iterator<Item = V>> MultiPeek<I> {
         } else {
             None
         }
+    }
+
+    pub fn inner(&self) -> &I {
+        &self.itr
+    }
+}
+
+impl<V, I: Iterator<Item = V>> Iterator for MultiPeek<I> {
+    type Item = V;
+
+    fn next(&mut self) -> Option<Self::Item> {
+        if let Some(elem) = self.peeked.pop_front() {
+            return Some(elem);
+        }
+        self.itr.next()
     }
 }
 
