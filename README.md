@@ -1,30 +1,27 @@
-# Run
-Debug print an AST: `cd parser && cargo run <file.pax>` - test files available in `parser/test_files`
+## Run
+Debug print an AST: `cd parser && cargo run <file.pax>` - test files are available in `parser/test_files`
 
-# Tests
-`cd parser && cargo test` - runs all test files and verifies no errors occured. no unit tests/fuzz tests yet.
+## Tests
+`cd parser && cargo test` - runs all test files and verifies no errors occurred. No unit tests/fuzz tests yet.
 
-# Example Usage
-
+## Example Usage
 ```rust
-fn main() -> Result<(), Box<dyn Error>> {
-    // read a files source
-    let file_name = std::env::args()
-        .skip(1)
-        .next()
-        .unwrap_or("test_file.pax".to_owned());
-    let source = std::fs::read_to_string(&file_name).unwrap();
+use pax_parser::Parser;
 
-    // parse it into a pax AST
+fn main() {
+    let source = std::fs::read_to_string("your_file.pax").unwrap();
     let ast = Parser::new(&source).pax();
-
-    // print results
-    println!("-------DONE-------");
+    
     match ast {
-        Ok(ast) => println!("parsed AST: {:#?}", ast),
-        Err(e) => e.print_with_file(&file_name, &source)?,
-    };
-    Ok(())
+        Ok(ast) => println!("Parsed AST: {:#?}", ast),
+        Err(e) => e.print_with_file("your_file.pax", &source).unwrap(),
+    }
 }
-
 ```
+
+## Project Structure
+The project is organized into the following modules:
+- `lexer`: Handles tokenization of the input source
+- `parser`: Contains the main parsing logic
+- `ast`: Defines the structure of the Abstract Syntax Tree
+- `utils`: Provides utility functions and structures (e.g., MultiPeek iterator)
